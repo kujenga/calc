@@ -90,10 +90,6 @@ func (p *parser) Opush(o *token) {
 func (p *parser) OpushR(r *rune) {
 	p.Opush(newToken(string(*r), false))
 }
-func (p *parser) Opop() *token {
-	p.optr--
-	return p.output[p.optr] // no inline decrement?
-}
 
 func (p *parser) String() string {
 	acc := "["
@@ -171,15 +167,14 @@ func (p *parser) HandleRune(r rune) bool {
 
 	case ')':
 		// Until we see left paren, pop the stack onto the output queue
-	rparen:
 		for {
 			ptr := p.Spop()
 			if ptr == nil {
 				p.SignalInvalid(')')
-				break rparen
+				break
 			}
 			if *ptr == '(' {
-				break rparen
+				break
 			}
 			p.OpushR(ptr)
 			continue

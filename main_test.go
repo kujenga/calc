@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
@@ -30,6 +29,7 @@ func TestPrecedence(t *testing.T) {
 
 func TestParser(t *testing.T) {
 	testcases := map[string]string{
+		"":                  "",
 		"2 + 4":             "2 4 +",
 		"3 + 4 * 2":         "3 4 2 * +",
 		"(445+(354*95463))": "445 354 95463 * +",
