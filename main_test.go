@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -18,11 +19,22 @@ func TestParserStack(t *testing.T) {
 	}
 }
 
+func TestPrecedence(t *testing.T) {
+	ops := []rune{'^', '*', '/', '+', '-'}
+	for _, r := range ops {
+		if _, ok := precedence[r]; !ok {
+			t.Errorf("%v should have been in precedence", string(r))
+		}
+	}
+}
+
 func TestParser(t *testing.T) {
 	testcases := map[string]string{
 		"2 + 4":             "2 4 +",
+		"3 + 4 * 2":         "3 4 2 * +",
 		"(445+(354*95463))": "445 354 95463 * +",
-		// "3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3": "3 4 2 * 1 5 - 2 3 ^ ^ / +",
+		"4 ^ 3":             "4 3 ^",
+		"3 + 4 * 2 / ( 1 - 5 ) ^ 2 ^ 3": "3 4 2 * 1 5 - 2 3 ^ ^ / +",
 	}
 
 	for given, expect := range testcases {
@@ -33,7 +45,7 @@ func TestParser(t *testing.T) {
 		p.Finish()
 
 		if got := p.RPN(); got != expect {
-			t.Errorf("from %v got '%v' != expected '%v'", p.String(), got, expect)
+			t.Errorf("result: '%v' != expected: '%v'", got, expect)
 		}
 	}
 }

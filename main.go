@@ -17,7 +17,7 @@ var precedence = map[rune]int{
 	'*': 3,
 	'/': 3,
 	'+': 2,
-	'−': 2,
+	'-': 2,
 }
 
 // if an operator is not in here, it is left associative
@@ -122,28 +122,27 @@ func (p *parser) RPN() string {
 
 func (p *parser) SignalInvalid(r rune) {
 	p.r.Reset(os.Stdin)
-	fmt.Println("invalid input", string(r))
+	fmt.Printf("invalid input: %#U\n", r)
 }
 
-func (p *parser) HandleOperator(op rune) {
-	prec := precedence[op]
-Outer:
+func (p *parser) HandleOperator(o1 rune) {
+	o1p := precedence[o1]
 	for {
 		ptr := p.Speek()
 		if ptr == nil {
-			break Outer
+			break
 		}
-		next := *ptr
+		o2 := *ptr
 
-		nPrec, ok := precedence[next]
-		if ok && (ra[next] && nPrec < prec || !ra[next] && nPrec <= prec) {
+		o2p, ok := precedence[o2]
+		if ok && (!ra[o2] && o1p <= o2p || ra[o2] && o1p < o2p) {
 			// remove from stack, add to output
 			p.OpushR(p.Spop())
 		} else {
-			break Outer
+			break
 		}
 	}
-	p.Spush(&op)
+	p.Spush(&o1)
 }
 
 func (p *parser) HandleRune(r rune) bool {
@@ -192,6 +191,7 @@ func (p *parser) HandleRune(r rune) bool {
 
 	default:
 		if !unicode.IsSpace(r) {
+			fmt.Println("hit default")
 			p.SignalInvalid(r)
 		}
 	}
