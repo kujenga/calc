@@ -48,6 +48,7 @@ func newToken(val string, numeric bool) *token {
 
 type parser struct {
 	r      *bufio.Reader
+	acc    string
 	stack  []*rune
 	sptr   int
 	output []*token
@@ -113,6 +114,9 @@ func (p *parser) RPN() string {
 	for _, t := range p.output[:p.optr] {
 		acc = fmt.Sprintf("%v %v", acc, t.val)
 	}
+	if acc != "" {
+		acc = acc[1:]
+	}
 	return acc
 }
 
@@ -142,27 +146,65 @@ Outer:
 	p.Spush(&op)
 }
 
-func (p *parser) HandleRParen() {
-	for {
-		ptr := p.Spop()
-		if ptr == nil {
-			p.SignalInvalid(')')
-			return
-		}
-		if *ptr == '(' {
-			return
-		}
-		// Until we see left paren, pop the stack onto the output queue
-		p.OpushR(ptr)
-		continue
+func (p *parser) HandleRune(r rune) bool {
+	// accumulating digits of a number
+	if unicode.IsDigit(r) {
+		p.acc += string(r)
+		return false
 	}
+
+	// the previous number is finished, push it to the stack
+	if p.acc != "" {
+		p.Opush(newToken(p.acc, true))
+		p.acc = ""
+	}
+
+	// handle operators, which are in the precedence value map
+	if _, ok := precedence[r]; ok {
+		p.HandleOperator(r)
+		return false
+	}
+
+	// test for value of the next symbol
+	switch r {
+	case '(':
+		p.Spush(&r)
+
+	case ')':
+		// Until we see left paren, pop the stack onto the output queue
+	rparen:
+		for {
+			ptr := p.Spop()
+			if ptr == nil {
+				p.SignalInvalid(')')
+				break rparen
+			}
+			if *ptr == '(' {
+				break rparen
+			}
+			p.OpushR(ptr)
+			continue
+		}
+
+	case '\n':
+		p.Finish()
+		return true
+
+	default:
+		if !unicode.IsSpace(r) {
+			p.SignalInvalid(r)
+		}
+	}
+	return false
 }
 
-func (p *parser) HandleRune(r rune) {
+func (p *parser) Finish() {
+	// if a number is sitting in the accumulator, handle it
+	if p.acc != "" {
+		p.Opush(newToken(p.acc, true))
+		p.acc = ""
+	}
 
-}
-
-func (p *parser) Eval() {
 	// finish
 	for {
 		ptr := p.Spop()
@@ -177,6 +219,11 @@ func (p *parser) Eval() {
 	}
 }
 
+func (p *parser) Evaluate() int {
+
+	return 0
+}
+
 func (p *parser) Reset() {
 	p.sptr = 0
 	p.optr = 0
@@ -185,7 +232,6 @@ func (p *parser) Reset() {
 
 func (p *parser) Run() {
 	fmt.Print("> ")
-	acc := ""
 	for {
 		r, _, err := p.r.ReadRune()
 		if err != nil {
@@ -193,41 +239,10 @@ func (p *parser) Run() {
 			break
 		}
 
-		// accumulating digits of a number
-		if unicode.IsDigit(r) {
-			acc += string(r)
-			continue
-		}
-
-		// the previous number is finished, push it to the stack
-		if acc != "" {
-			p.Opush(newToken(acc, true))
-			acc = ""
-		}
-
-		// handle operators, which are in the precedence value map
-		if _, ok := precedence[r]; ok {
-			p.HandleOperator(r)
-			continue
-		}
-
-		// test for value of the next symbol
-		switch r {
-		case '(':
-			p.Spush(&r)
-
-		case ')':
-			p.HandleRParen()
-
-		case '\n':
-			p.Eval()
-			fmt.Println("rpn:", p.RPN())
+		done := p.HandleRune(r)
+		if done {
+			fmt.Println("rpn:", p.RPN(), "=", p.Evaluate())
 			p.Reset()
-
-		default:
-			if !unicode.IsSpace(r) {
-				p.SignalInvalid(r)
-			}
 		}
 	}
 }
