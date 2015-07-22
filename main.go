@@ -26,7 +26,7 @@ var ra = map[rune]bool{
 }
 
 func main() {
-	p := newParser(os.Stdin)
+	p := newParser(os.Stdin, os.Stdout)
 	p.Run()
 }
 
@@ -48,6 +48,7 @@ func newToken(val string, numeric bool) *token {
 
 type parser struct {
 	r      *bufio.Reader
+	w      *bufio.Writer
 	acc    string
 	stack  []*rune
 	sptr   int
@@ -55,9 +56,16 @@ type parser struct {
 	optr   int
 }
 
-func newParser(reader io.Reader) *parser {
+func newParser(reader io.Reader, writer io.Writer) *parser {
+	if reader == nil {
+		reader = os.Stdin
+	}
+	if writer == nil {
+		writer = os.Stdout
+	}
 	return &parser{
 		r:      bufio.NewReader(reader),
+		w:      bufio.NewWriter(writer),
 		stack:  make([]*rune, 1024),
 		sptr:   0,
 		output: make([]*token, 1024),
@@ -222,11 +230,11 @@ func (p *parser) Evaluate() int {
 func (p *parser) Reset() {
 	p.sptr = 0
 	p.optr = 0
-	fmt.Print("> ")
+	fmt.Fprint(p.w, "> ")
 }
 
 func (p *parser) Run() {
-	fmt.Print("> ")
+	fmt.Fprint(p.w, "> ")
 	for {
 		r, _, err := p.r.ReadRune()
 		if err != nil {
@@ -236,7 +244,7 @@ func (p *parser) Run() {
 
 		done := p.HandleRune(r)
 		if done {
-			fmt.Println("rpn:", p.RPN(), "=", p.Evaluate())
+			fmt.Fprintln(p.w, "rpn:", p.RPN(), "=", p.Evaluate())
 			p.Reset()
 		}
 	}
