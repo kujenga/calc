@@ -9,8 +9,25 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"unicode"
+	"unicode/utf8"
 )
+
+// see: https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+func pow(x, n int) int {
+	if n == 0 {
+		return 1
+	}
+	if n == 1 {
+		return x
+	}
+	if n%2 == 0 { // even
+		return pow(x*x, n/2)
+	}
+	// odd
+	return x * pow(x*x, (n-1)/2)
+}
 
 var precedence = map[rune]int{
 	'^': 4,
@@ -18,6 +35,26 @@ var precedence = map[rune]int{
 	'/': 3,
 	'+': 2,
 	'-': 2,
+}
+
+type opfunc func(a, b int) int
+
+var opfuncs = map[rune]opfunc{
+	'^': func(a, b int) int {
+		return pow(a, b)
+	},
+	'*': func(a, b int) int {
+		return a * b
+	},
+	'/': func(a, b int) int {
+		return a / b
+	},
+	'+': func(a, b int) int {
+		return a + b
+	},
+	'-': func(a, b int) int {
+		return a - b
+	},
 }
 
 // if an operator is not in here, it is left associative
@@ -42,6 +79,28 @@ func newToken(val string, numeric bool) *token {
 		val:     val,
 		numeric: numeric,
 	}
+}
+
+func (t *token) IsOperator() bool {
+	if len(t.val) != 1 {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(t.val)
+	_, ok := precedence[r]
+	return ok
+}
+
+func (t *token) ToRune() rune {
+	r, _ := utf8.DecodeRuneInString(t.val)
+	return r
+}
+
+func (t *token) ToInt() int {
+	i, err := strconv.Atoi(t.val)
+	if err != nil {
+		panic(err.Error())
+	}
+	return i
 }
 
 // parser
@@ -222,9 +281,41 @@ func (p *parser) Finish() {
 	}
 }
 
-func (p *parser) Evaluate() int {
+func (p *parser) Eval() int {
+	// eval stack
+	if p.optr == 0 {
+		return 0
+	}
 
-	return 0
+	s := make([]int, p.optr)
+	sptr := 0
+	pop := func() int {
+		sptr--
+		return s[sptr]
+	}
+	push := func(i int) {
+		s[sptr] = i
+		sptr++
+	}
+
+	for _, t := range p.output[:p.optr] {
+		if t.numeric {
+			push(t.ToInt())
+		} else if t.IsOperator() {
+			b := pop()
+			a := pop()
+			o := opfuncs[t.ToRune()](a, b)
+			push(o)
+		}
+	}
+	return pop()
+}
+
+func (p *parser) Parse(str string) {
+	for _, r := range str {
+		p.HandleRune(r)
+	}
+	p.Finish()
 }
 
 func (p *parser) Reset() {
@@ -244,7 +335,7 @@ func (p *parser) Run() {
 
 		done := p.HandleRune(r)
 		if done {
-			fmt.Fprintln(p.w, "rpn:", p.RPN(), "=", p.Evaluate())
+			fmt.Fprintln(p.w, "rpn:", p.RPN(), "=", p.Eval())
 			p.Reset()
 		}
 	}

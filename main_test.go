@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+func TestPow(t *testing.T) {
+	if r := pow(2, 4); r != 16 {
+		t.Errorf("2^4 is 16, not %v", r)
+	}
+}
+
 func TestParserStack(t *testing.T) {
 	p := newParser(nil, nil)
 
@@ -41,10 +47,7 @@ var testcases = map[string]string{
 func TestParser(t *testing.T) {
 	for given, expect := range testcases {
 		p := newParser(nil, nil)
-		for _, r := range given {
-			p.HandleRune(r)
-		}
-		p.Finish()
+		p.Parse(given)
 
 		// test that string debugging method matches expected form
 		if m, err := regexp.Match(`\[ (.*? )*?\]\t\[ \]`, []byte(p.String())); !m || err != nil {
@@ -72,5 +75,25 @@ func TestParserInput(t *testing.T) {
 		}
 
 		// TODO: check output
+	}
+}
+
+var testoutcomes = map[string]int{
+	"2 + 4":                       6,
+	"3 + 4 * 2":                   11,
+	"(445+(354*95463))":           33794347,
+	"( 1 - 5 ) ^ 2":               16,
+	"(8 + 4 * 2) / ( 1 - 5 ) ^ 2": 1,
+}
+
+func TestParserEvaluation(t *testing.T) {
+	p := newParser(nil, nil)
+	for given, expect := range testoutcomes {
+		p.Parse(given)
+
+		if res := p.Eval(); res != expect {
+			t.Errorf("result %v didn't equal %v", res, expect)
+		}
+		p.Reset()
 	}
 }
